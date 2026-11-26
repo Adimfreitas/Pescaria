@@ -4,7 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>Gravador de pesca</title>
+<title>Pesca Replay</title>
+<meta name="theme-color" content="#0B2A30">
+<meta name="apple-mobile-web-app-title" content="Pesca Replay">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230B2A30'/%3E%3Cpath d='M8 34c8-12 22-16 34-10l14-8v36l-14-8C30 50 16 46 8 34z' fill='white'/%3E%3Ccircle cx='20' cy='31' r='2.6' fill='%230B2A30'/%3E%3Ccircle cx='50' cy='14' r='7' fill='%23D7263D'/%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="icone.png">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&display=swap">
 <style>
 :root{--bg:#EDF3F1;--surface:#fff;--ink:#10282B;--mute:#5B7378;--line:#D3E0DD;--accent:#D7263D;--on-accent:#fff;--water:#1C6E7D;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -35,6 +39,22 @@ button:focus-visible{outline:3px solid var(--water);outline-offset:2px}
 .meta{margin:12px 0 14px;font-size:18px;font-weight:700}
 .row{display:flex;gap:10px}
 .row>*{flex:1}
+.hero{margin-top:16px;padding:22px 18px 18px;border-radius:24px;background:linear-gradient(160deg,#134952,#0B2A30);color:#fff}
+.brand{display:flex;gap:14px;align-items:center;margin-bottom:20px}
+.logo{width:54px;height:54px;flex:none}
+.hero h1{font-size:28px}
+.tag{margin:2px 0 0;color:#B8D3D6;font-size:14px}
+.go{font-size:18px;padding:18px}
+.hero .hint{color:#B8D3D6}
+.adj{margin-top:14px;border-top:1px solid rgba(255,255,255,.15);padding-top:12px}
+.adj summary{cursor:pointer;font-weight:700;list-style:none}
+.adj summary::-webkit-details-marker{display:none}
+.adj summary::after{content:" ▾"}
+.hero .set label{color:#B8D3D6}
+.hero .set select{background:#0E3037;color:#fff;border-color:#2B6068}
+.hero .set .btn.alt{background:#0E3037;color:#fff;border-color:#2B6068}
+.sec{font-size:20px;margin:28px 0 2px;font-weight:800}
+#sum{margin:0 0 14px}
 .cam{background:#000;align-items:stretch}
 .camwrap{width:100%;max-width:560px;display:flex;flex-direction:column;padding:calc(12px + env(safe-area-inset-top,0px)) 16px calc(16px + env(safe-area-inset-bottom,0px))}
 #cv{flex:1;min-height:0;width:100%;object-fit:cover;border-radius:16px;background:#111}
@@ -56,12 +76,19 @@ button:focus-visible{outline:3px solid var(--water);outline-offset:2px}
 </style>
 </head>
 <body>
-<header>
-  <h1>Gravador de pesca</h1>
-  <p id="sum"></p>
-  <button class="btn" id="on" type="button">Ligar câmera</button>
-  <p class="hint">Depois de ligar, diga “ok câmera” e ela grava já com os segundos de antes. Diga “parar” para salvar.</p>
-  <div class="set">
+<header class="hero">
+  <div class="brand">
+    <svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" fill="#0E3037"/><path d="M8 34c8-12 22-16 34-10l14-8v36l-14-8C30 50 16 46 8 34z" fill="#fff"/><circle cx="20" cy="31" r="2.6" fill="#0E3037"/><circle cx="50" cy="14" r="7" fill="#D7263D"/></svg>
+    <div>
+      <h1>Pesca Replay</h1>
+      <p class="tag">Grave a fisgada, com os segundos de antes.</p>
+    </div>
+  </div>
+  <button class="btn go" id="on" type="button">Ligar câmera</button>
+  <p class="hint">Diga “ok câmera” para gravar e “parar” para salvar.</p>
+  <details class="adj">
+    <summary>Ajustes</summary>
+    <div class="set">
     <label>Gravar antes do comando
       <select id="pre"><option value="15">15 segundos</option><option value="30">30 segundos</option></select>
     </label>
@@ -79,7 +106,10 @@ button:focus-visible{outline:3px solid var(--water);outline-offset:2px}
     </label>
     <button class="btn alt" id="cfg" type="button">Gravar minha frase</button>
   </div>
+  </details>
 </header>
+<h2 class="sec">Seus vídeos</h2>
+<p id="sum"></p>
 <main id="list"></main>
 
 <div class="overlay cam" id="mode" hidden>
@@ -181,12 +211,13 @@ function render() {
   items.sort((a, b) => b.created - a.created);
   $('#sum').textContent = !db ? 'Sem armazenamento no navegador: os vídeos somem ao fechar.' : items.length ? items.length + (items.length === 1 ? ' vídeo guardado' : ' vídeos guardados') : '';
   if (!items.length) { $('#list').innerHTML = '<div class="empty"><p>Nenhum vídeo ainda. Ligue a câmera e diga “ok câmera”.</p></div>'; return; }
-  $('#list').innerHTML = '<div class="grid">' + items.map(o =>
+  $('#list').innerHTML = '<button class="btn alt" id="all" type="button">Salvar todos em Fotos (' + items.length + ')</button><p class="hint" id="allmsg" role="status"></p><div class="grid">' + items.map(o =>
     '<button class="tile" type="button" data-id="' + o.id + '"><video src="' + url(o) + '#t=0.1" preload="metadata" muted playsinline></video><span class="cap"><b>' + fmt(o.created) + '</b></span></button>'
   ).join('') + '</div>';
 }
 
 $('#list').onclick = e => {
+  if (e.target.closest('#all')) { saveAll(); return; }
   const t = e.target.closest('.tile');
   if (!t) return;
   current = items.find(o => o.id === t.dataset.id);
@@ -364,6 +395,21 @@ function ui() {
     tm.hidden = false;
     tm.textContent = String(Math.floor(sec / 60)).padStart(2, '0') + ':' + String(sec % 60).padStart(2, '0');
   } else tm.hidden = true;
+}
+function saveAll() {
+  const msg = $('#allmsg');
+  const files = items.map(o => {
+    const t = o.blob.type || 'video/mp4';
+    const ext = t.includes('mp4') ? 'mp4' : t.includes('webm') ? 'webm' : 'mov';
+    return new File([o.blob], 'pesca-' + o.created + '.' + ext, { type: t });
+  });
+  if (!navigator.canShare || !navigator.canShare({ files })) {
+    msg.textContent = 'Este navegador não permite salvar vários de uma vez. Abra cada vídeo e use Salvar em Fotos.';
+    return;
+  }
+  navigator.share({ files }).catch(e => {
+    if (e && e.name !== 'AbortError') msg.textContent = 'Não consegui enviar todos de uma vez, talvez pelo tamanho. Salve um por um.';
+  });
 }
 const LG = {
   'pt-BR': { s: /(ok|okay|oquei) camera/, e: /\b(parar|pare|chega)\b/, n: '“ok câmera”' },

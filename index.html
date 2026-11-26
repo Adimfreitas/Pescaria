@@ -55,6 +55,24 @@ button:focus-visible{outline:3px solid var(--water);outline-offset:2px}
 .hero .set .btn.alt{background:#0E3037;color:#fff;border-color:#2B6068}
 .sec{font-size:20px;margin:28px 0 2px;font-weight:800}
 #sum{margin:0 0 14px}
+.hero{box-shadow:0 10px 30px rgba(11,42,48,.25)}
+.tile{box-shadow:0 2px 10px rgba(0,0,0,.18)}
+.dur{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.6);color:#fff;font-size:12px;font-weight:700;padding:3px 8px;border-radius:999px}
+.big-e{font-size:44px;margin-bottom:6px}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.pill{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:999px;background:#1a1a1a;color:#fff;font-weight:700;font-size:13px;letter-spacing:.06em}
+.pill i{width:9px;height:9px;border-radius:50%;background:#f5c542}
+.pill.ok i{background:#6ee787}
+.pill.rec{background:#3a0f15}
+.pill.rec i{background:#ff4d5e;animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.25}}
+@media (prefers-reduced-motion:reduce){.pill.rec i{animation:none}}
+.ibtn{width:48px;height:48px;border-radius:50%;border:1px solid #444;background:#1a1a1a;color:#fff;font-size:20px;cursor:pointer;display:grid;place-items:center;padding:0}
+.ctl{display:flex;align-items:center;justify-content:space-between;padding:4px 14px 0}
+.ctl .sp{width:48px}
+.shutter{width:78px;height:78px;border-radius:50%;border:4px solid #fff;background:transparent;padding:5px;cursor:pointer}
+.shutter i{display:block;width:100%;height:100%;border-radius:50%;background:#e5383b;transition:transform .15s,border-radius .15s}
+.shutter.on i{border-radius:12px;transform:scale(.55)}
 .cam{background:#000;align-items:stretch}
 .camwrap{width:100%;max-width:560px;display:flex;flex-direction:column;padding:calc(12px + env(safe-area-inset-top,0px)) 16px calc(16px + env(safe-area-inset-bottom,0px))}
 #cv{flex:1;min-height:0;width:100%;object-fit:cover;border-radius:16px;background:#111}
@@ -114,14 +132,15 @@ button:focus-visible{outline:3px solid var(--water);outline-offset:2px}
 
 <div class="overlay cam" id="mode" hidden>
   <div class="camwrap">
+    <div class="top"><span class="pill" id="pl"><i></i><span id="pt">AQUECENDO</span></span><button class="ibtn" id="exit" type="button" aria-label="Sair" title="Sair">✕</button></div>
     <div class="vwrap"><video id="cv" muted playsinline autoplay></video><span class="timer" id="tm" hidden>00:00</span></div>
     <p class="cs" id="cs" role="status"></p>
     <p class="chk" id="chk"></p>
     <p class="ls" id="ls" role="status"></p>
-    <div class="row">
-      <button class="btn" id="rec" type="button">Gravar agora</button>
-      <button class="btn alt" id="lock" type="button">Travar tela</button>
-      <button class="btn alt" id="exit" type="button">Sair</button>
+    <div class="ctl">
+      <button class="ibtn" id="lock" type="button" aria-label="Travar tela" title="Travar tela">🔒</button>
+      <button class="shutter" id="rec" type="button" aria-label="Gravar ou parar"><i></i></button>
+      <span class="sp"></span>
     </div>
   </div>
 </div>
@@ -201,7 +220,7 @@ function remove(id) {
     t.onerror = res;
   });
 }
-const fmt = ms => new Date(ms).toLocaleString('pt-BR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+const fmt = ms => new Date(ms).toLocaleString('pt-BR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 function url(o) {
   if (!urls.has(o.id)) urls.set(o.id, URL.createObjectURL(o.blob));
   return urls.get(o.id);
@@ -210,9 +229,9 @@ function url(o) {
 function render() {
   items.sort((a, b) => b.created - a.created);
   $('#sum').textContent = !db ? 'Sem armazenamento no navegador: os vídeos somem ao fechar.' : items.length ? items.length + (items.length === 1 ? ' vídeo guardado' : ' vídeos guardados') : '';
-  if (!items.length) { $('#list').innerHTML = '<div class="empty"><p>Nenhum vídeo ainda. Ligue a câmera e diga “ok câmera”.</p></div>'; return; }
+  if (!items.length) { $('#list').innerHTML = '<div class="empty"><div class="big-e">🎣</div><p>Nenhum vídeo ainda.<br>Ligue a câmera e diga “ok câmera” na próxima fisgada.</p></div>'; return; }
   $('#list').innerHTML = '<button class="btn alt" id="all" type="button">Salvar todos em Fotos (' + items.length + ')</button><p class="hint" id="allmsg" role="status"></p><div class="grid">' + items.map(o =>
-    '<button class="tile" type="button" data-id="' + o.id + '"><video src="' + url(o) + '#t=0.1" preload="metadata" muted playsinline></video><span class="cap"><b>' + fmt(o.created) + '</b></span></button>'
+    '<button class="tile" type="button" data-id="' + o.id + '"><video src="' + url(o) + '#t=0.1" preload="metadata" muted playsinline></video>' + (o.dur ? '<span class="dur">' + Math.floor(o.dur / 60) + ':' + String(o.dur % 60).padStart(2, '0') + '</span>' : '') + '<span class="cap"><b>' + fmt(o.created) + '</b></span></button>'
   ).join('') + '</div>';
 }
 
@@ -290,16 +309,16 @@ function trigger() {
   rec = segs[0]; rec.keep = true;
   segs.slice(1).forEach(s => s.mr.stop());
   segs = [];
-  $('#rec').textContent = 'Parar';
+  $('#rec').classList.add('on');
   recStart = Date.now(); hitAt = Date.now(); beep(1);
   say('Gravando, com os segundos antes. Diga “parar” ou toque em Parar.', true);
 }
 function stopRec() { if (rec) { rec.mr.stop(); hitAt = Date.now(); beep(2); say('Salvando…'); } }
 async function finish(s) {
   const blob = new Blob(s.chunks, { type: s.mr.mimeType || 'video/mp4' });
-  const o = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), created: s.start, blob };
+  const o = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), created: s.start, dur: Math.round((Date.now() - s.start) / 1000), blob };
   rec = null;
-  $('#rec').textContent = 'Gravar agora';
+  $('#rec').classList.remove('on');
   let msg = 'Vídeo salvo. Aquecendo: aguarde ' + SEG / 1000 + ' s.';
   try { await put(o); items.push(o); render(); } catch (e) { msg = 'Não coube no armazenamento. Exclua algum vídeo.'; }
   if (modeOn) roll(msg);
@@ -349,7 +368,7 @@ function leave() {
   setTimeout(() => { if (st) st.getTracks().forEach(t => t.stop()); }, 600);
   if (wl) { wl.release().catch(() => {}); wl = null; }
   $('#cv').srcObject = null;
-  $('#rec').textContent = 'Gravar agora';
+  $('#rec').classList.remove('on');
   $('#mode').hidden = true;
 }
 function initAudio() {
@@ -389,6 +408,8 @@ function ui() {
   if (hit) line = '✅ Comando reconhecido';
   $('#ls').textContent = line;
   $('#ls').classList.toggle('hit', hit);
+  $('#pl').className = 'pill ' + (rec ? 'rec' : ready ? 'ok' : '');
+  $('#pt').textContent = rec ? 'GRAVANDO' : ready ? 'PRONTO' : 'AQUECENDO';
   const tm = $('#tm');
   if (rec) {
     const sec = Math.floor((Date.now() - recStart) / 1000);

@@ -45,6 +45,8 @@ button:focus-visible{outline:3px solid var(--water);outline-offset:2px}
 .timer{position:absolute;top:12px;right:14px;color:#fff;font-weight:800;font-size:34px;font-variant-numeric:tabular-nums;text-shadow:0 1px 6px rgba(0,0,0,.6)}
 .chk{color:#fff;font-weight:700;line-height:1.7;margin:0 0 12px;text-align:center;font-size:15px}
 .cam .row .btn{font-size:15px;padding:14px 6px}
+.ls{color:#f5c542;text-align:center;margin:0 0 12px;font-weight:700;font-size:15px;min-height:1.4em}
+.ls.hit{color:#6ee787}
 .lock{position:fixed;inset:0;z-index:30;background:#000;display:grid;place-items:center;user-select:none;-webkit-user-select:none;touch-action:none}
 .lock p{color:#3a3a3a;font-size:14px;text-align:center;padding:0 24px}
 .set{display:grid;gap:10px;margin-top:14px}
@@ -66,6 +68,9 @@ button:focus-visible{outline:3px solid var(--water);outline-offset:2px}
     <label>Câmera
       <select id="fc"><option value="environment">Traseira</option><option value="user">Frontal</option></select>
     </label>
+    <label>Qualidade do vídeo
+      <select id="ql"><option value="1080">1080p (melhor)</option><option value="720">720p (arquivo menor)</option></select>
+    </label>
     <label>Idioma dos comandos
       <select id="lg"><option value="pt-BR">Português</option><option value="es-ES">Español</option><option value="en-US">English</option></select>
     </label>
@@ -82,6 +87,7 @@ button:focus-visible{outline:3px solid var(--water);outline-offset:2px}
     <div class="vwrap"><video id="cv" muted playsinline autoplay></video><span class="timer" id="tm" hidden>00:00</span></div>
     <p class="cs" id="cs" role="status"></p>
     <p class="chk" id="chk"></p>
+    <p class="ls" id="ls" role="status"></p>
     <div class="row">
       <button class="btn" id="rec" type="button">Gravar agora</button>
       <button class="btn alt" id="lock" type="button">Travar tela</button>
@@ -123,6 +129,7 @@ button:focus-visible{outline:3px solid var(--water);outline-offset:2px}
 const $ = s => document.querySelector(s);
 let db = null, items = [], current = null, armed = false;
 const urls = new Map();
+let heardTxt = '', heardAt = 0, hitAt = 0;
 let SEG = 15000, voiceOk = false, ac = null, recStart = 0, uiT = null, holdT = null;
 
 let stream = null, segs = [], rec = null, iv = null, rt = null, sr = null, wl = null, modeOn = false;
@@ -226,7 +233,9 @@ function pickMime() {
 }
 function startSeg() {
   const m = pickMime();
-  const mr = new MediaRecorder(stream, m ? { mimeType: m } : undefined);
+  const opt = { videoBitsPerSecond: $('#ql').value === '720' ? 5e6 : 10e6 };
+  if (m) opt.mimeType = m;
+  const mr = new MediaRecorder(stream, opt);
   const s = { mr, chunks: [], start: Date.now(), keep: false };
   mr.ondataavailable = e => { if (e.data && e.data.size) s.chunks.push(e.data); };
   mr.onstop = () => { if (s.keep) finish(s); else s.chunks = []; };
@@ -251,10 +260,10 @@ function trigger() {
   segs.slice(1).forEach(s => s.mr.stop());
   segs = [];
   $('#rec').textContent = 'Parar';
-  recStart = Date.now(); beep(1);
+  recStart = Date.now(); hitAt = Date.now(); beep(1);
   say('Gravando, com os segundos antes. Diga “parar” ou toque em Parar.', true);
 }
-function stopRec() { if (rec) { rec.mr.stop(); beep(2); say('Salvando…'); } }
+function stopRec() { if (rec) { rec.mr.stop(); hitAt = Date.now(); beep(2); say('Salvando…'); } }
 async function finish(s) {
   const blob = new Blob(s.chunks, { type: s.mr.mimeType || 'video/mp4' });
   const o = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), created: s.start, blob };
@@ -272,6 +281,7 @@ function listen() {
   sr.onresult = e => {
     for (let i = e.resultIndex; i < e.results.length; i++) {
       const t = norm(e.results[i][0].transcript);
+      heardTxt = t; heardAt = Date.now();
       if (!rec && isStart(t)) trigger();
       else if (rec && LG[lang()].e.test(t)) stopRec();
     }
@@ -282,12 +292,12 @@ function listen() {
 }
 $('#on').onclick = async () => {
   SEG = Number($('#pre').value) * 1000;
-  try { localStorage.setItem('gp', JSON.stringify({ pre: $('#pre').value, fc: $('#fc').value, lg: $('#lg').value, cm: $('#cm').value })); } catch (e) {}
+  try { localStorage.setItem('gp', JSON.stringify({ pre: $('#pre').value, fc: $('#fc').value, lg: $('#lg').value, cm: $('#cm').value, ql: $('#ql').value })); } catch (e) {}
   initAudio();
   $('#mode').hidden = false; modeOn = true;
   say('Abrindo câmera e microfone…');
   try {
-    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: $('#fc').value }, audio: true });
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: $('#fc').value, width: { ideal: $('#ql').value === '720' ? 1280 : 1920 }, height: { ideal: $('#ql').value === '720' ? 720 : 1080 }, frameRate: { ideal: 30 } }, audio: true });
   } catch (e) { say('Não consegui abrir a câmera e o microfone. Permita o acesso (Ajustes > Apps > Safari > Câmera e Microfone) e tente de novo.'); return; }
   if (!window.MediaRecorder) { say('Este navegador não grava vídeo aqui.'); return; }
   $('#cv').srcObject = stream;
@@ -330,11 +340,24 @@ function beep(n) {
     }
   } catch (e) {}
 }
+function camInfo() {
+  const t = stream && stream.getVideoTracks()[0];
+  const st = t && t.getSettings ? t.getSettings() : null;
+  return st && st.width ? ' (' + Math.min(st.width, st.height) + 'p' + (st.frameRate ? ', ' + Math.round(st.frameRate) + ' fps' : '') + ')' : '';
+}
 function ui() {
   if (!modeOn) return;
   const ready = rec || (segs.length && Date.now() - segs[0].start >= SEG - 300);
-  $('#chk').innerHTML = [['Câmera pronta', !!stream], ['Pré-gravação pronta', !!ready], ['Comando de voz pronto', voiceOk]]
+  $('#chk').innerHTML = [['Câmera pronta' + camInfo(), !!stream], ['Pré-gravação pronta', !!ready], ['Comando de voz pronto', voiceOk]]
     .map(x => (x[1] ? '✅ ' : '❌ ') + x[0]).join('<br>');
+  const stopWord = { 'pt-BR': '“parar”', 'es-ES': '“parar”', 'en-US': '“stop”' }[lang()];
+  const want = rec ? stopWord : ($('#cm').value === 'cus' && phrases.length ? 'sua frase' : LG[lang()].n);
+  const hit = Date.now() - hitAt < 3000;
+  let line = voiceOk ? '🎤 Ouvindo: ' + want : '🎤 Voz indisponível. Use os botões.';
+  if (voiceOk && heardTxt && Date.now() - heardAt < 4000) line += ' · Ouvi: “' + heardTxt.slice(-40) + '”';
+  if (hit) line = '✅ Comando reconhecido';
+  $('#ls').textContent = line;
+  $('#ls').classList.toggle('hit', hit);
   const tm = $('#tm');
   if (rec) {
     const sec = Math.floor((Date.now() - recStart) / 1000);
@@ -405,6 +428,7 @@ try {
   if (p.pre) $('#pre').value = p.pre;
   if (p.fc) $('#fc').value = p.fc;
   if (p.lg) $('#lg').value = p.lg;
+  if (p.ql) $('#ql').value = p.ql;
   if (p.cm) $('#cm').value = p.cm;
   phrases = JSON.parse(localStorage.getItem('gp-ph') || '[]');
 } catch (e) {}

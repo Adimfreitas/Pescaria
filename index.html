@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Gravador de pesca</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&display=swap">
+<style>
+:root{--bg:#EDF3F1;--surface:#fff;--ink:#10282B;--mute:#5B7378;--line:#D3E0DD;--accent:#D7263D;--on-accent:#fff;--water:#1C6E7D;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0E2326;--surface:#153237;--ink:#E6F0EE;--mute:#8FAAAE;--line:#254A50;--accent:#F0505F;--on-accent:#1A0508;--water:#5CC0D0;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0E2326;--surface:#153237;--ink:#E6F0EE;--mute:#8FAAAE;--line:#254A50;--accent:#F0505F;--on-accent:#1A0508;--water:#5CC0D0;color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:"Bricolage Grotesque",system-ui,-apple-system,"Segoe UI",sans-serif;font-size:16px;line-height:1.4;padding:0 16px 40px;max-width:560px;margin:0 auto}
+header{padding:28px 0 8px}
+h1{font-size:34px;line-height:1.05;margin:0;font-weight:800;letter-spacing:-.02em}
+#sum{margin:6px 0 14px;color:var(--mute);min-height:1.4em}
+.btn{display:block;width:100%;text-align:center;border:0;border-radius:14px;padding:16px;font:700 17px/1.2 inherit;font-family:inherit;background:var(--accent);color:var(--on-accent);cursor:pointer}
+.btn.alt{background:var(--surface);color:var(--ink);border:1px solid var(--line)}
+.btn.armed{background:var(--accent);color:var(--on-accent)}
+button:focus-visible{outline:3px solid var(--water);outline-offset:2px}
+.hint{color:var(--mute);margin:10px 0 0;font-size:14px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:22px}
+.tile{position:relative;aspect-ratio:1;border:0;padding:0;border-radius:16px;overflow:hidden;background:#000;cursor:pointer;color:#fff;font:inherit;text-align:left}
+.tile video{width:100%;height:100%;object-fit:cover;display:block}
+.cap{position:absolute;left:0;right:0;bottom:0;padding:22px 10px 8px;background:linear-gradient(transparent,rgba(0,0,0,.7));font-size:14px;line-height:1.25}
+.cap b{display:block}
+.empty{margin-top:50px;text-align:center;color:var(--mute)}
+.empty p{max-width:30ch;margin:0 auto}
+.overlay{position:fixed;inset:0;z-index:10;background:rgba(6,18,20,.6);display:flex;align-items:flex-end;justify-content:center}
+.panel{background:var(--surface);width:100%;max-width:560px;max-height:92%;overflow-y:auto;border-radius:22px 22px 0 0;padding:20px 16px calc(20px + env(safe-area-inset-bottom,0px))}
+.panel video{width:100%;max-height:60vh;display:block;background:#000;border-radius:14px}
+.meta{margin:12px 0 14px;font-size:18px;font-weight:700}
+.row{display:flex;gap:10px}
+.row>*{flex:1}
+.cam{background:#000;align-items:stretch}
+.camwrap{width:100%;max-width:560px;display:flex;flex-direction:column;padding:calc(12px + env(safe-area-inset-top,0px)) 16px calc(16px + env(safe-area-inset-bottom,0px))}
+#cv{flex:1;min-height:0;width:100%;object-fit:cover;border-radius:16px;background:#111}
+.cs{color:#fff;margin:12px 0;text-align:center;font-weight:700;min-height:2.8em}
+.cs.on{color:#ff6b78}
+.cam .btn.alt{background:#222;color:#fff;border-color:#444}
+@media (prefers-reduced-motion:no-preference){.panel{animation:up .22s ease-out}@keyframes up{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Gravador de pesca</h1>
+  <p id="sum"></p>
+  <button class="btn" id="on" type="button">Ligar câmera</button>
+  <p class="hint">Depois de ligar, diga “ok câmera” e ela grava já com os segundos de antes. Diga “parar” para salvar.</p>
+</header>
+<main id="list"></main>
+
+<div class="overlay cam" id="mode" hidden>
+  <div class="camwrap">
+    <video id="cv" muted playsinline autoplay></video>
+    <p class="cs" id="cs" role="status"></p>
+    <div class="row">
+      <button class="btn" id="rec" type="button">Gravar agora</button>
+      <button class="btn alt" id="exit" type="button">Sair</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="view" hidden>
+  <div class="panel" role="dialog" aria-label="Vídeo">
+    <div id="big"></div>
+    <p class="meta" id="vt"></p>
+    <button class="btn" id="share" type="button" style="margin-bottom:10px">Salvar em Fotos</button>
+    <div class="row">
+      <button class="btn alt" id="del" type="button">Excluir</button>
+      <button class="btn" id="close" type="button">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+let db = null, items = [], current = null, armed = false;
+const urls = new Map();
+const SEG = 15000, READY = 'Pronto. Diga “ok câmera” para gravar.';
+let stream = null, segs = [], rec = null, iv = null, rt = null, sr = null, wl = null, modeOn = false;
+
+function openDb() {
+  return new Promise(res => {
+    try {
+      const r = indexedDB.open('gravador', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('v', { keyPath: 'id' });
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => res(null);
+    } catch (e) { res(null); }
+  });
+}
+function getAll() {
+  return new Promise(res => {
+    if (!db) return res([]);
+    const q = db.transaction('v').objectStore('v').getAll();
+    q.onsuccess = () => res(q.result);
+    q.onerror = () => res([]);
+  });
+}
+function put(o) {
+  return new Promise((res, rej) => {
+    if (!db) return res();
+    const t = db.transaction('v', 'readwrite');
+    t.objectStore('v').put(o);
+    t.oncomplete = res;
+    t.onerror = () => rej(t.error);
+    t.onabort = () => rej(t.error);
+  });
+}
+function remove(id) {
+  return new Promise(res => {
+    if (!db) return res();
+    const t = db.transaction('v', 'readwrite');
+    t.objectStore('v').delete(id);
+    t.oncomplete = res;
+    t.onerror = res;
+  });
+}
+const fmt = ms => new Date(ms).toLocaleString('pt-BR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+function url(o) {
+  if (!urls.has(o.id)) urls.set(o.id, URL.createObjectURL(o.blob));
+  return urls.get(o.id);
+}
+
+function render() {
+  items.sort((a, b) => b.created - a.created);
+  $('#sum').textContent = !db ? 'Sem armazenamento no navegador: os vídeos somem ao fechar.' : items.length ? items.length + (items.length === 1 ? ' vídeo guardado' : ' vídeos guardados') : '';
+  if (!items.length) { $('#list').innerHTML = '<div class="empty"><p>Nenhum vídeo ainda. Ligue a câmera e diga “ok câmera”.</p></div>'; return; }
+  $('#list').innerHTML = '<div class="grid">' + items.map(o =>
+    '<button class="tile" type="button" data-id="' + o.id + '"><video src="' + url(o) + '#t=0.1" preload="metadata" muted playsinline></video><span class="cap"><b>' + fmt(o.created) + '</b></span></button>'
+  ).join('') + '</div>';
+}
+
+$('#list').onclick = e => {
+  const t = e.target.closest('.tile');
+  if (!t) return;
+  current = items.find(o => o.id === t.dataset.id);
+  if (!current) return;
+  armed = false;
+  $('#del').textContent = 'Excluir';
+  $('#del').classList.remove('armed');
+  $('#big').innerHTML = '<video src="' + url(current) + '" controls playsinline></video>';
+  $('#vt').textContent = fmt(current.created);
+  $('#view').hidden = false;
+};
+function closeView() { $('#big').innerHTML = ''; $('#view').hidden = true; }
+$('#close').onclick = closeView;
+$('#del').onclick = async () => {
+  if (!armed) { armed = true; $('#del').textContent = 'Toque de novo para excluir'; $('#del').classList.add('armed'); return; }
+  await remove(current.id);
+  items = items.filter(o => o.id !== current.id);
+  if (urls.has(current.id)) { URL.revokeObjectURL(urls.get(current.id)); urls.delete(current.id); }
+  closeView();
+  render();
+};
+$('#share').onclick = async () => {
+  if (!current) return;
+  const t = current.blob.type || 'video/mp4';
+  const ext = t.includes('mp4') ? 'mp4' : t.includes('webm') ? 'webm' : 'mov';
+  const f = new File([current.blob], 'pesca-' + current.created + '.' + ext, { type: t });
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [f] })) {
+      await navigator.share({ files: [f] });
+    } else {
+      const a = document.createElement('a');
+      a.href = url(current); a.download = f.name;
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+  } catch (e) {}
+};
+$('#view').addEventListener('click', e => { if (e.target === $('#view')) closeView(); });
+
+const say = (m, on) => { $('#cs').textContent = m; $('#cs').classList.toggle('on', !!on); };
+const norm = t => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+function pickMime() {
+  if (!window.MediaRecorder) return '';
+  return ['video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm'].find(t => MediaRecorder.isTypeSupported(t)) || '';
+}
+function startSeg() {
+  const m = pickMime();
+  const mr = new MediaRecorder(stream, m ? { mimeType: m } : undefined);
+  const s = { mr, chunks: [], start: Date.now(), keep: false };
+  mr.ondataavailable = e => { if (e.data && e.data.size) s.chunks.push(e.data); };
+  mr.onstop = () => { if (s.keep) finish(s); else s.chunks = []; };
+  mr.start(1000);
+  return s;
+}
+function tick() {
+  if (rec || !modeOn) return;
+  segs.push(startSeg());
+  segs = segs.filter(s => { if (Date.now() - s.start >= 2 * SEG - 500) { s.mr.stop(); return false; } return true; });
+}
+function roll(msg) {
+  segs = [startSeg()];
+  say(msg || 'Aquecendo: aguarde 15 s para guardar o antes.');
+  clearTimeout(rt); rt = setTimeout(() => { if (!rec && modeOn) say(READY); }, SEG);
+  clearInterval(iv); iv = setInterval(tick, SEG);
+}
+function trigger() {
+  if (rec || !segs.length) return;
+  clearInterval(iv); clearTimeout(rt);
+  rec = segs[0]; rec.keep = true;
+  segs.slice(1).forEach(s => s.mr.stop());
+  segs = [];
+  $('#rec').textContent = 'Parar';
+  say('Gravando, com os segundos antes. Diga “parar” ou toque em Parar.', true);
+}
+function stopRec() { if (rec) { rec.mr.stop(); say('Salvando…'); } }
+async function finish(s) {
+  const blob = new Blob(s.chunks, { type: s.mr.mimeType || 'video/mp4' });
+  const o = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), created: s.start, blob };
+  rec = null;
+  $('#rec').textContent = 'Gravar agora';
+  let msg = 'Vídeo salvo. Aquecendo: aguarde 15 s.';
+  try { await put(o); items.push(o); render(); } catch (e) { msg = 'Não coube no armazenamento. Exclua algum vídeo.'; }
+  if (modeOn) roll(msg);
+}
+function listen() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { say('Este navegador não entende voz. Use o botão Gravar agora.'); return; }
+  sr = new SR(); sr.lang = 'pt-BR'; sr.continuous = true; sr.interimResults = true;
+  sr.onresult = e => {
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const t = norm(e.results[i][0].transcript);
+      if (!rec && /(ok|okay|oquei) camera/.test(t)) trigger();
+      else if (rec && /\b(parar|pare|chega)\b/.test(t)) stopRec();
+    }
+  };
+  sr.onerror = e => { if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { sr.onend = null; if (!rec) say('Sem permissão de voz. Use os botões.'); } };
+  sr.onend = () => { if (modeOn) setTimeout(() => { try { sr.start(); } catch (x) {} }, 300); };
+  try { sr.start(); } catch (e) {}
+}
+$('#on').onclick = async () => {
+  $('#mode').hidden = false; modeOn = true;
+  say('Abrindo câmera e microfone…');
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: true });
+  } catch (e) { say('Não consegui abrir a câmera e o microfone. Permita o acesso (Ajustes > Apps > Safari > Câmera e Microfone) e tente de novo.'); return; }
+  if (!window.MediaRecorder) { say('Este navegador não grava vídeo aqui.'); return; }
+  $('#cv').srcObject = stream;
+  try { if (navigator.wakeLock) wl = await navigator.wakeLock.request('screen'); } catch (e) {}
+  roll(); listen();
+};
+$('#rec').onclick = () => rec ? stopRec() : trigger();
+function leave() {
+  modeOn = false;
+  clearInterval(iv); clearTimeout(rt);
+  if (sr) { sr.onend = null; try { sr.stop(); } catch (e) {} sr = null; }
+  segs.forEach(s => { try { s.mr.stop(); } catch (e) {} });
+  segs = [];
+  if (rec) rec.mr.stop();
+  const st = stream; stream = null;
+  setTimeout(() => { if (st) st.getTracks().forEach(t => t.stop()); }, 600);
+  if (wl) { wl.release().catch(() => {}); wl = null; }
+  $('#cv').srcObject = null;
+  $('#rec').textContent = 'Gravar agora';
+  $('#mode').hidden = true;
+}
+$('#exit').onclick = leave;
+
+(async () => { db = await openDb(); items = await getAll(); render(); })();
+</script>
+</body>
+</html>

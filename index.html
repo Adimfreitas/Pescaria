@@ -41,6 +41,15 @@ button:focus-visible{outline:3px solid var(--water);outline-offset:2px}
 .cs{color:#fff;margin:12px 0;text-align:center;font-weight:700;min-height:2.8em}
 .cs.on{color:#ff6b78}
 .cam .btn.alt{background:#222;color:#fff;border-color:#444}
+.vwrap{position:relative;flex:1;min-height:0;display:flex}
+.timer{position:absolute;top:12px;right:14px;color:#fff;font-weight:800;font-size:34px;font-variant-numeric:tabular-nums;text-shadow:0 1px 6px rgba(0,0,0,.6)}
+.chk{color:#fff;font-weight:700;line-height:1.7;margin:0 0 12px;text-align:center;font-size:15px}
+.cam .row .btn{font-size:15px;padding:14px 6px}
+.lock{position:fixed;inset:0;z-index:30;background:#000;display:grid;place-items:center;user-select:none;-webkit-user-select:none;touch-action:none}
+.lock p{color:#3a3a3a;font-size:14px;text-align:center;padding:0 24px}
+.set{display:grid;gap:10px;margin-top:14px}
+.set label{font-size:14px;color:var(--mute)}
+.set select{display:block;width:100%;margin-top:4px;padding:11px 12px;font:500 16px/1.3 inherit;font-family:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:12px}
 @media (prefers-reduced-motion:no-preference){.panel{animation:up .22s ease-out}@keyframes up{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}}
 </style>
 </head>
@@ -50,19 +59,53 @@ button:focus-visible{outline:3px solid var(--water);outline-offset:2px}
   <p id="sum"></p>
   <button class="btn" id="on" type="button">Ligar câmera</button>
   <p class="hint">Depois de ligar, diga “ok câmera” e ela grava já com os segundos de antes. Diga “parar” para salvar.</p>
+  <div class="set">
+    <label>Gravar antes do comando
+      <select id="pre"><option value="15">15 segundos</option><option value="30">30 segundos</option></select>
+    </label>
+    <label>Câmera
+      <select id="fc"><option value="environment">Traseira</option><option value="user">Frontal</option></select>
+    </label>
+    <label>Idioma dos comandos
+      <select id="lg"><option value="pt-BR">Português</option><option value="es-ES">Español</option><option value="en-US">English</option></select>
+    </label>
+    <label>Comando de voz
+      <select id="cm"><option value="std">Padrão (“ok câmera”)</option><option value="cus">Personalizado</option></select>
+    </label>
+    <button class="btn alt" id="cfg" type="button">Gravar minha frase</button>
+  </div>
 </header>
 <main id="list"></main>
 
 <div class="overlay cam" id="mode" hidden>
   <div class="camwrap">
-    <video id="cv" muted playsinline autoplay></video>
+    <div class="vwrap"><video id="cv" muted playsinline autoplay></video><span class="timer" id="tm" hidden>00:00</span></div>
     <p class="cs" id="cs" role="status"></p>
+    <p class="chk" id="chk"></p>
     <div class="row">
       <button class="btn" id="rec" type="button">Gravar agora</button>
+      <button class="btn alt" id="lock" type="button">Travar tela</button>
       <button class="btn alt" id="exit" type="button">Sair</button>
     </div>
   </div>
 </div>
+
+<div class="overlay" id="cp" hidden>
+  <div class="panel" role="dialog" aria-label="Comando de voz personalizado">
+    <h2 style="margin:0 0 6px">Comando personalizado</h2>
+    <p class="hint" style="margin:0 0 14px">Escolha uma frase com duas palavras, não muito curta. Toque no microfone e diga a mesma frase 4 vezes, com volume natural.</p>
+    <button class="btn" id="mic" type="button">🎤 Tocar e falar (1 de 4)</button>
+    <p class="meta" id="dots" style="text-align:center">○ ○ ○ ○</p>
+    <p class="hint" id="heard" role="status" style="text-align:center"></p>
+    <div class="row">
+      <button class="btn alt" id="tst" type="button" disabled>Testar</button>
+      <button class="btn" id="sv" type="button" disabled>Salvar frase</button>
+    </div>
+    <button class="btn alt" id="cpx" type="button" style="margin-top:10px">Voltar</button>
+  </div>
+</div>
+
+<div class="lock" id="lk" hidden><p>Tela travada. Segure 2 segundos para destravar.</p></div>
 
 <div class="overlay" id="view" hidden>
   <div class="panel" role="dialog" aria-label="Vídeo">
@@ -80,7 +123,8 @@ button:focus-visible{outline:3px solid var(--water);outline-offset:2px}
 const $ = s => document.querySelector(s);
 let db = null, items = [], current = null, armed = false;
 const urls = new Map();
-const SEG = 15000, READY = 'Pronto. Diga “ok câmera” para gravar.';
+let SEG = 15000, voiceOk = false, ac = null, recStart = 0, uiT = null, holdT = null;
+
 let stream = null, segs = [], rec = null, iv = null, rt = null, sr = null, wl = null, modeOn = false;
 
 function openDb() {
@@ -196,8 +240,8 @@ function tick() {
 }
 function roll(msg) {
   segs = [startSeg()];
-  say(msg || 'Aquecendo: aguarde 15 s para guardar o antes.');
-  clearTimeout(rt); rt = setTimeout(() => { if (!rec && modeOn) say(READY); }, SEG);
+  say(msg || 'Aquecendo: aguarde ' + SEG / 1000 + ' s para guardar o antes.');
+  clearTimeout(rt); rt = setTimeout(() => { if (!rec && modeOn) say(readyMsg()); }, SEG);
   clearInterval(iv); iv = setInterval(tick, SEG);
 }
 function trigger() {
@@ -207,46 +251,53 @@ function trigger() {
   segs.slice(1).forEach(s => s.mr.stop());
   segs = [];
   $('#rec').textContent = 'Parar';
+  recStart = Date.now(); beep(1);
   say('Gravando, com os segundos antes. Diga “parar” ou toque em Parar.', true);
 }
-function stopRec() { if (rec) { rec.mr.stop(); say('Salvando…'); } }
+function stopRec() { if (rec) { rec.mr.stop(); beep(2); say('Salvando…'); } }
 async function finish(s) {
   const blob = new Blob(s.chunks, { type: s.mr.mimeType || 'video/mp4' });
   const o = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), created: s.start, blob };
   rec = null;
   $('#rec').textContent = 'Gravar agora';
-  let msg = 'Vídeo salvo. Aquecendo: aguarde 15 s.';
+  let msg = 'Vídeo salvo. Aquecendo: aguarde ' + SEG / 1000 + ' s.';
   try { await put(o); items.push(o); render(); } catch (e) { msg = 'Não coube no armazenamento. Exclua algum vídeo.'; }
   if (modeOn) roll(msg);
 }
 function listen() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) { say('Este navegador não entende voz. Use o botão Gravar agora.'); return; }
-  sr = new SR(); sr.lang = 'pt-BR'; sr.continuous = true; sr.interimResults = true;
+  sr = new SR(); sr.lang = lang(); sr.continuous = true; sr.interimResults = true;
+  sr.onstart = () => { voiceOk = true; };
   sr.onresult = e => {
     for (let i = e.resultIndex; i < e.results.length; i++) {
       const t = norm(e.results[i][0].transcript);
-      if (!rec && /(ok|okay|oquei) camera/.test(t)) trigger();
-      else if (rec && /\b(parar|pare|chega)\b/.test(t)) stopRec();
+      if (!rec && isStart(t)) trigger();
+      else if (rec && LG[lang()].e.test(t)) stopRec();
     }
   };
-  sr.onerror = e => { if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { sr.onend = null; if (!rec) say('Sem permissão de voz. Use os botões.'); } };
+  sr.onerror = e => { if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { sr.onend = null; voiceOk = false; if (!rec) say('Sem permissão de voz. Use os botões.'); } };
   sr.onend = () => { if (modeOn) setTimeout(() => { try { sr.start(); } catch (x) {} }, 300); };
   try { sr.start(); } catch (e) {}
 }
 $('#on').onclick = async () => {
+  SEG = Number($('#pre').value) * 1000;
+  try { localStorage.setItem('gp', JSON.stringify({ pre: $('#pre').value, fc: $('#fc').value, lg: $('#lg').value, cm: $('#cm').value })); } catch (e) {}
+  initAudio();
   $('#mode').hidden = false; modeOn = true;
   say('Abrindo câmera e microfone…');
   try {
-    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: true });
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: $('#fc').value }, audio: true });
   } catch (e) { say('Não consegui abrir a câmera e o microfone. Permita o acesso (Ajustes > Apps > Safari > Câmera e Microfone) e tente de novo.'); return; }
   if (!window.MediaRecorder) { say('Este navegador não grava vídeo aqui.'); return; }
   $('#cv').srcObject = stream;
   try { if (navigator.wakeLock) wl = await navigator.wakeLock.request('screen'); } catch (e) {}
   roll(); listen();
+  clearInterval(uiT); uiT = setInterval(ui, 500);
 };
 $('#rec').onclick = () => rec ? stopRec() : trigger();
 function leave() {
+  clearInterval(uiT); voiceOk = false; $('#lk').hidden = true;
   modeOn = false;
   clearInterval(iv); clearTimeout(rt);
   if (sr) { sr.onend = null; try { sr.stop(); } catch (e) {} sr = null; }
@@ -260,6 +311,103 @@ function leave() {
   $('#rec').textContent = 'Gravar agora';
   $('#mode').hidden = true;
 }
+function initAudio() {
+  try {
+    if (navigator.audioSession) navigator.audioSession.type = 'play-and-record';
+    if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)();
+    ac.resume();
+  } catch (e) {}
+}
+function beep(n) {
+  try {
+    if (!ac) return;
+    for (let i = 0; i < n; i++) {
+      const o = ac.createOscillator(), g = ac.createGain(), t = ac.currentTime + i * 0.25;
+      o.frequency.value = n === 1 ? 1000 : 650;
+      g.gain.value = 0.3;
+      o.connect(g); g.connect(ac.destination);
+      o.start(t); o.stop(t + 0.15);
+    }
+  } catch (e) {}
+}
+function ui() {
+  if (!modeOn) return;
+  const ready = rec || (segs.length && Date.now() - segs[0].start >= SEG - 300);
+  $('#chk').innerHTML = [['Câmera pronta', !!stream], ['Pré-gravação pronta', !!ready], ['Comando de voz pronto', voiceOk]]
+    .map(x => (x[1] ? '✅ ' : '❌ ') + x[0]).join('<br>');
+  const tm = $('#tm');
+  if (rec) {
+    const sec = Math.floor((Date.now() - recStart) / 1000);
+    tm.hidden = false;
+    tm.textContent = String(Math.floor(sec / 60)).padStart(2, '0') + ':' + String(sec % 60).padStart(2, '0');
+  } else tm.hidden = true;
+}
+const LG = {
+  'pt-BR': { s: /(ok|okay|oquei) camera/, e: /\b(parar|pare|chega)\b/, n: '“ok câmera”' },
+  'es-ES': { s: /(ok|okay) camara/, e: /\b(parar|detener|basta)\b/, n: '“ok cámara”' },
+  'en-US': { s: /(ok|okay) camera/, e: /\b(stop|end)\b/, n: '“ok camera”' }
+};
+const lang = () => $('#lg').value;
+const readyMsg = () => $('#cm').value === 'cus' && phrases.length
+  ? 'Pronto. Diga a sua frase para gravar.'
+  : 'Pronto. Diga ' + LG[lang()].n + ' para gravar.';
+let phrases = [], tmp = [], testing = false;
+function isStart(t) {
+  if ($('#cm').value === 'cus' && phrases.length) return phrases.some(x => t.includes(x));
+  return LG[lang()].s.test(t);
+}
+function drawCp() {
+  $('#dots').textContent = Array.from({ length: 4 }, (_, i) => i < tmp.length ? '●' : '○').join(' ');
+  $('#heard').textContent = tmp.length ? 'Entendi: ' + tmp.join(' · ') : '';
+  const full = tmp.length >= 4;
+  $('#tst').disabled = !full; $('#sv').disabled = !full;
+  $('#mic').textContent = testing ? '🎤 Fale a frase para testar' : full ? '🎤 Gravar de novo' : '🎤 Tocar e falar (' + (tmp.length + 1) + ' de 4)';
+}
+function listenOnce(cb) {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { $('#heard').textContent = 'Este navegador não entende voz.'; return; }
+  const r = new SR();
+  r.lang = lang(); r.interimResults = false; r.continuous = false;
+  r.onresult = e => cb(norm(e.results[0][0].transcript).replace(/[^a-z0-9 ]/g, '').trim());
+  r.onerror = () => { $('#heard').textContent = 'Não consegui ouvir. Toque no microfone e tente de novo.'; $('#mic').disabled = false; };
+  r.onend = () => { $('#mic').disabled = false; };
+  $('#heard').textContent = 'Ouvindo…'; $('#mic').disabled = true;
+  try { r.start(); } catch (e) { $('#mic').disabled = false; }
+}
+$('#cfg').onclick = () => { tmp = []; testing = false; drawCp(); $('#cp').hidden = false; };
+$('#cpx').onclick = () => { $('#cp').hidden = true; };
+$('#mic').onclick = () => {
+  if (!testing && tmp.length >= 4) tmp = [];
+  listenOnce(t => {
+    if (testing) {
+      testing = false; drawCp();
+      $('#heard').textContent = tmp.some(x => t.includes(x)) ? '✅ Reconhecido: ' + t : '❌ Não reconheceu (' + t + '). Tente de novo.';
+      return;
+    }
+    if (t.length >= 3) tmp.push(t);
+    drawCp();
+  });
+};
+$('#tst').onclick = () => { testing = true; drawCp(); };
+$('#sv').onclick = () => {
+  phrases = [...new Set(tmp)];
+  try { localStorage.setItem('gp-ph', JSON.stringify(phrases)); } catch (e) {}
+  $('#cm').value = 'cus';
+  try { const q = JSON.parse(localStorage.getItem('gp') || '{}'); q.cm = 'cus'; localStorage.setItem('gp', JSON.stringify(q)); } catch (e) {}
+  $('#cp').hidden = true;
+};
+const lk = $('#lk');
+$('#lock').onclick = () => { lk.hidden = false; };
+lk.addEventListener('pointerdown', () => { holdT = setTimeout(() => { lk.hidden = true; }, 2000); });
+['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => lk.addEventListener(ev, () => clearTimeout(holdT)));
+try {
+  const p = JSON.parse(localStorage.getItem('gp') || '{}');
+  if (p.pre) $('#pre').value = p.pre;
+  if (p.fc) $('#fc').value = p.fc;
+  if (p.lg) $('#lg').value = p.lg;
+  if (p.cm) $('#cm').value = p.cm;
+  phrases = JSON.parse(localStorage.getItem('gp-ph') || '[]');
+} catch (e) {}
 $('#exit').onclick = leave;
 
 (async () => { db = await openDb(); items = await getAll(); render(); })();

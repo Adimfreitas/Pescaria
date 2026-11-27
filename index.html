@@ -127,6 +127,20 @@ button:focus-visible{outline:3px solid var(--water);outline-offset:2px}
 .insight{font-weight:700;margin:10px 0 2px}
 @keyframes grow{from{transform:scaleY(0)}}
 @media (prefers-reduced-motion:no-preference){.col i{animation:grow .5s ease both}}
+.tab{position:absolute;right:0;top:46%;transform:translateY(-50%);z-index:3;width:34px;height:76px;border:1px solid #444;border-right:0;border-radius:14px 0 0 14px;background:#1a1a1a;color:#fff;font-size:18px;cursor:pointer;display:grid;place-items:center;padding:0}
+.tab:disabled{opacity:.35}
+.dwrap{position:absolute;inset:0;z-index:4;pointer-events:none}
+.dwrap.open{pointer-events:auto}
+.scrim{position:absolute;inset:0;background:rgba(0,0,0,.5);opacity:0;transition:opacity .25s}
+.dwrap.open .scrim{opacity:1}
+.drawer{position:absolute;top:0;right:0;bottom:0;width:min(88%,340px);background:#0f1a1c;color:#fff;transform:translateX(100%);transition:transform .25s;padding:calc(14px + env(safe-area-inset-top,0px)) 14px calc(14px + env(safe-area-inset-bottom,0px));overflow-y:auto;border-radius:20px 0 0 20px}
+.dwrap.open .drawer{transform:none}
+.dhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;font-size:18px}
+.fld{margin-bottom:10px}
+.fld summary{cursor:pointer;font-weight:700;padding:8px 0;list-style:none}
+.fld summary::-webkit-details-marker{display:none}
+.fld .grid{margin-top:6px}
+#mode.night .drawer{filter:sepia(1) saturate(6) hue-rotate(-35deg) brightness(.7)}
 .cam{background:#000;align-items:stretch}
 .camwrap{width:100%;max-width:560px;display:flex;flex-direction:column;padding:calc(12px + env(safe-area-inset-top,0px)) 16px calc(16px + env(safe-area-inset-bottom,0px))}
 #cv{flex:1;min-height:0;width:100%;object-fit:cover;border-radius:16px;background:#111}
@@ -209,6 +223,14 @@ button:focus-visible{outline:3px solid var(--water);outline-offset:2px}
       <span class="sp"></span>
     </div>
   </div>
+  <button class="tab" id="dtab" type="button" aria-label="Abrir vídeos" title="Seus vídeos">🎞️</button>
+  <div class="dwrap" id="dwrap">
+    <div class="scrim" id="dscrim"></div>
+    <aside class="drawer" aria-label="Seus vídeos">
+      <div class="dhead"><strong>Seus vídeos</strong><button class="ibtn" id="drx" type="button" aria-label="Fechar">✕</button></div>
+      <div id="drl"></div>
+    </aside>
+  </div>
 </div>
 
 <div class="overlay" id="cp" hidden>
@@ -234,7 +256,7 @@ button:focus-visible{outline:3px solid var(--water);outline-offset:2px}
       <li><b>2</b><span>Quando o peixe aparecer, diga <strong>“ok câmera”</strong>. Você ouve um bip e a gravação começa já com os segundos de antes.</span></li>
       <li><b>3</b><span>Diga <strong>“parar”</strong> pra salvar. Depois, use <strong>Salvar todos em Fotos</strong>.</span></li>
     </ol>
-    <p class="hint">Dica: toque duas vezes na tela pra gravar ou parar sem falar. Use o botão 🔒 pra escurecer a tela. Não aperte o botão lateral do iPhone, ele desliga a câmera.</p>
+    <p class="hint">Dica: a aba 🎞️ na lateral da câmera mostra os vídeos por dia. Toque duas vezes na tela pra gravar ou parar sem falar. Use o botão 🔒 pra escurecer a tela. Não aperte o botão lateral do iPhone, ele desliga a câmera.</p>
     <button class="btn" id="howok" type="button" style="margin-top:12px">Entendi</button>
   </div>
 </div>
@@ -362,7 +384,10 @@ $('#list').onclick = e => {
   if (sel) { const id = t.dataset.id; if (sel.has(id)) sel.delete(id); else sel.add(id); delArmed = false; render(); return; }
   openView(vlist().findIndex(o => o.id === t.dataset.id));
 };
-function closeView() { $('#big').innerHTML = ''; $('#view').hidden = true; }
+function closeView() {
+  $('#big').innerHTML = ''; $('#view').hidden = true;
+  if ($('#dwrap').classList.contains('open')) drawList();
+}
 $('#close').onclick = closeView;
 $('#del').onclick = async () => {
   if (!armed) { armed = true; $('#del').textContent = 'Toque de novo para excluir'; $('#del').classList.add('armed'); return; }
@@ -476,6 +501,7 @@ $('#on').onclick = async () => {
 };
 $('#rec').onclick = () => rec ? stopRec() : trigger();
 function leave() {
+  $('#dwrap').classList.remove('open');
   clearInterval(uiT); voiceOk = false; $('#lk').hidden = true;
   modeOn = false;
   clearInterval(iv); clearTimeout(rt);
@@ -685,6 +711,44 @@ function openIns() {
 $('#insb').onclick = openIns;
 $('#insx').onclick = () => { $('#ins').hidden = true; };
 $('#ins').addEventListener('click', e => { if (e.target === $('#ins')) $('#ins').hidden = true; });
+const dayKey = ms => { const d = new Date(ms); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); };
+const dayLabel = ms => {
+  const k = dayKey(ms), now = Date.now();
+  if (k === dayKey(now)) return 'Hoje';
+  if (k === dayKey(now - 864e5)) return 'Ontem';
+  return new Date(ms).toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'short' });
+};
+const dtile = o => '<button class="tile" type="button" data-id="' + o.id + '"><video src="' + url(o) + '#t=0.1" preload="metadata" muted playsinline></video>' +
+  (o.dur ? '<span class="dur">' + Math.floor(o.dur / 60) + ':' + String(o.dur % 60).padStart(2, '0') + '</span>' : '') +
+  '<span class="cap"><b>' + new Date(o.created).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + (favs.has(o.id) ? ' ⭐' : '') + '</b></span></button>';
+function fillFolder(d) {
+  if (d.dataset.f) return;
+  d.dataset.f = '1';
+  d.querySelector('.grid').innerHTML = items.filter(o => dayKey(o.created) === d.dataset.k).map(dtile).join('');
+}
+function drawList() {
+  const days = [], map = {};
+  items.forEach(o => { const k = dayKey(o.created); if (!map[k]) { map[k] = []; days.push(k); } map[k].push(o); });
+  $('#drl').innerHTML = days.length
+    ? days.map((k, n) => '<details class="fld" data-k="' + k + '"' + (n === 0 ? ' open' : '') + '><summary>📁 ' + dayLabel(map[k][0].created) + ' · ' + map[k].length + (map[k].length === 1 ? ' vídeo' : ' vídeos') + '</summary><div class="grid"></div></details>').join('')
+    : '<p class="hint" style="color:#9bb">Nenhum vídeo ainda.</p>';
+  $('#drl').querySelectorAll('details[open]').forEach(fillFolder);
+}
+function openById(id) {
+  let i = vlist().findIndex(o => o.id === id);
+  if (i < 0) {
+    favOnly = false;
+    document.querySelectorAll('#filt .chip').forEach(c => c.classList.toggle('on', c.dataset.f === 'all'));
+    render();
+    i = vlist().findIndex(o => o.id === id);
+  }
+  openView(i);
+}
+$('#drl').addEventListener('toggle', e => { if (e.target.open) fillFolder(e.target); }, true);
+$('#drl').onclick = e => { const t = e.target.closest('.tile'); if (t) openById(t.dataset.id); };
+$('#dtab').onclick = () => { if (rec) return; drawList(); $('#dwrap').classList.add('open'); };
+$('#drx').onclick = () => { $('#dwrap').classList.remove('open'); };
+$('#dscrim').onclick = () => { $('#dwrap').classList.remove('open'); };
 function countUp(el, to) {
   const t0 = performance.now();
   (function f(t) {
@@ -735,6 +799,8 @@ function ui() {
   if (hit) line = '✅ Comando reconhecido';
   $('#ls').textContent = line;
   $('#ls').classList.toggle('hit', hit);
+  $('#dtab').disabled = !!rec;
+  if (rec) $('#dwrap').classList.remove('open');
   $('#pl').className = 'pill ' + (rec ? 'rec' : ready ? 'ok' : '');
   $('#pt').textContent = rec ? 'GRAVANDO' : ready ? 'PRONTO' : 'AQUECENDO';
   if (rec) {

@@ -183,6 +183,15 @@ body{background:var(--bg)}
 .chk{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 14px;font-size:13px;font-weight:600;color:#cfd6d8;margin:0 0 8px}
 .cs{min-height:1.4em;margin:10px 0 8px}
 .ls{margin:0 0 14px}
+.adj{border-top:0;padding-top:0}
+.adj summary{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border:1px solid #2A3235;border-radius:14px;background:#0D1113;color:var(--ink);font-weight:700;font-size:16px;cursor:pointer;list-style:none;transition:transform .1s}
+.adj summary::after{content:"▾";transition:transform .2s}
+.adj[open] summary::after{transform:rotate(180deg)}
+.adj summary:active{transform:scale(.98)}
+.adj summary:focus-visible{outline:3px solid var(--water);outline-offset:2px}
+.adj summary{background:linear-gradient(135deg,rgba(92,192,208,.24),rgba(92,192,208,.08));border-color:#5CC0D0;color:#C9F2F8}
+.adj[open] summary{background:linear-gradient(135deg,rgba(92,192,208,.34),rgba(92,192,208,.12))}
+.adj summary::after{color:#5CC0D0}
 </style>
 </head>
 <body>
@@ -201,7 +210,7 @@ body{background:var(--bg)}
   <button class="btn go" id="on" type="button">Ligar câmera</button>
   <p class="hint">Diga “ok câmera” para gravar e “parar” para salvar.</p>
   <details class="adj">
-    <summary>Ajustes</summary>
+    <summary>⚙️ Ajustes</summary>
     <div class="set">
     <label>Gravar antes do comando
       <select id="pre"><option value="15">15 segundos</option><option value="30">30 segundos</option></select>

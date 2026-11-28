@@ -1,5 +1,5 @@
 // Pesca Replay: guarda o app no celular para abrir sem internet.
-const V = 'pesca-v1';
+const V = 'pesca-v5';
 const FILES = ['./', './index.html', './icone.png'];
 
 self.addEventListener('install', e => {

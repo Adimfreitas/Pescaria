@@ -192,6 +192,42 @@ body{background:var(--bg)}
 .adj summary{background:linear-gradient(135deg,rgba(92,192,208,.24),rgba(92,192,208,.08));border-color:#5CC0D0;color:#C9F2F8}
 .adj[open] summary{background:linear-gradient(135deg,rgba(92,192,208,.34),rgba(92,192,208,.12))}
 .adj summary::after{color:#5CC0D0}
+.camwrap{position:relative;max-width:none!important;padding:0!important;display:block!important;overflow:hidden}
+.vwrap{position:absolute!important;inset:0;display:block!important;margin:0}
+#cv{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:0!important;background:#000}
+.vwrap::after{border-radius:0}
+.timer{top:calc(92px + env(safe-area-inset-top,0px));left:50%;right:auto;transform:translateX(-50%);font-size:40px}
+.topbar{position:absolute;left:14px;top:calc(12px + env(safe-area-inset-top,0px));display:flex;align-items:center;gap:12px;z-index:2;pointer-events:none}
+.camwrap .ls{position:absolute;left:0;right:76px;top:calc(60px + env(safe-area-inset-top,0px));text-align:center;z-index:2;pointer-events:none;margin:0;color:#fff;font-size:14px;text-shadow:0 1px 6px rgba(0,0,0,.85)}
+.camwrap .ls.hit{color:#6ee787}
+.side{position:absolute;right:12px;top:calc(100px + env(safe-area-inset-top,0px));display:flex;flex-direction:column;gap:10px;z-index:3;align-items:center}
+.sb{display:flex;flex-direction:column;align-items:center}
+.sb small{font-size:10px;color:#fff;font-weight:700;margin-top:3px;text-align:center;max-width:64px;line-height:1.1;text-shadow:0 1px 4px #000}
+.sb small.on{color:#6ee787}
+.side .ibtn{background:rgba(0,0,0,.45);border:1.5px solid rgba(255,255,255,.75)}
+.ibtn:disabled{opacity:.35}
+.botpanel{position:absolute;left:12px;right:12px;bottom:calc(150px + env(safe-area-inset-bottom,0px));z-index:3;background:rgba(14,16,17,.82);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border:1px solid #2a3235;border-radius:20px;padding:6px 12px 12px}
+.grab{display:block;margin:0 auto 6px;background:none;border:0;color:#7fb0ff;font-size:20px;line-height:1;cursor:pointer;padding:4px 24px;transition:transform .2s}
+.botpanel.closed .grab{transform:rotate(180deg)}
+.chips{display:flex;gap:8px;margin-bottom:8px}
+.pchip{flex:1;background:#000;color:#fff;border:1px solid #333;border-radius:14px;padding:12px 8px;font:700 14px/1.1 inherit;font-family:inherit;cursor:pointer}
+.pchip.wide{width:100%;margin-bottom:6px}
+.botpanel.closed .chips,.botpanel.closed #cc,.botpanel.closed .chk{display:none}
+.botpanel .cs{margin:4px 0;font-size:13px;min-height:0}
+.botpanel .chk{margin:6px 0 0}
+.recwrap{position:absolute;left:0;right:0;bottom:calc(14px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;align-items:center;gap:8px;z-index:3}
+.reclbl{color:#fff;font-weight:800;letter-spacing:.06em;font-size:14px;text-shadow:0 1px 6px #000}
+.menu{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(170px + env(safe-area-inset-bottom,0px));width:min(86%,320px);background:rgba(28,30,31,.97);border-radius:18px;padding:12px;z-index:6;display:flex;flex-direction:column;gap:8px}
+.menu strong{font-size:16px}
+.menu p{margin:0;color:#aab;font-size:13px}
+.menu button{background:#2a2d2f;color:#fff;border:0;border-radius:12px;padding:13px;font:600 15px/1.1 inherit;font-family:inherit;cursor:pointer}
+.menu button.on{outline:2px solid var(--accent)}
+#mscrim{position:absolute;inset:0;z-index:5}
+#mode[data-eco="1"] #cv{opacity:.3}
+#mode[data-eco="2"] #cv{visibility:hidden}
+.natb{margin-top:12px;background:#0D1113;color:#fff;border:1px solid #2A3235}
+.sideL{position:absolute;left:12px;top:calc(100px + env(safe-area-inset-top,0px));z-index:3}
+.sideL .ibtn{background:rgba(0,0,0,.45);border:1.5px solid rgba(255,255,255,.75)}
 </style>
 </head>
 <body>
@@ -209,17 +245,23 @@ body{background:var(--bg)}
   <p class="readout" id="hs"></p>
   <button class="btn go" id="on" type="button">Ligar câmera</button>
   <p class="hint">Diga “ok câmera” para gravar e “parar” para salvar.</p>
+  <button class="btn alt natb" id="natb" type="button">📱 Câmera do iPhone</button>
+  <p class="hint">Qualidade total, zoom e lanterna. Sem voz e sem buffer.</p>
+  <input type="file" id="nat" accept="video/*" capture="environment" hidden>
   <details class="adj">
     <summary>⚙️ Ajustes</summary>
     <div class="set">
     <label>Gravar antes do comando
-      <select id="pre"><option value="15">15 segundos</option><option value="30">30 segundos</option></select>
+      <select id="pre"><option value="15">15 segundos</option><option value="30">30 segundos</option><option value="60">60 segundos (usa mais memória)</option></select>
     </label>
     <label>Câmera
       <select id="fc"><option value="environment">Traseira</option><option value="user">Frontal</option></select>
     </label>
     <label>Qualidade do vídeo
-      <select id="ql"><option value="1080">1080p (melhor)</option><option value="720">720p (arquivo menor)</option></select>
+      <select id="ql"><option value="1080">1080p (melhor)</option><option value="720">720p (arquivo menor)</option><option value="2160">4K (experimental)</option></select>
+    </label>
+    <label>Quadros por segundo
+      <select id="fr"><option value="30">30 fps</option><option value="60">60 fps (se o iPhone permitir)</option></select>
     </label>
     <label>Parar sozinho após
       <select id="lm"><option value="180">3 minutos</option><option value="300" selected>5 minutos</option><option value="600">10 minutos</option></select>
@@ -234,7 +276,7 @@ body{background:var(--bg)}
       <select id="lg"><option value="pt-BR">Português</option><option value="es-ES">Español</option><option value="en-US">English</option></select>
     </label>
     <label>Comando de voz
-      <select id="cm"><option value="std">Padrão (“ok câmera”)</option><option value="cus">Personalizado</option></select>
+      <select id="cm"><option value="std">Padrão (“ok câmera”)</option><option value="p1">“câmera, comece a gravar”</option><option value="p2">“fisgou”</option><option value="p3">“salvar vídeo”</option><option value="cus">Personalizado</option></select>
     </label>
     <button class="btn alt" id="cfg" type="button">Gravar minha frase</button>
     <button class="btn alt" id="testb" type="button">Teste rápido</button>
@@ -253,18 +295,34 @@ body{background:var(--bg)}
 
 <div class="overlay cam" id="mode" hidden>
   <div class="camwrap">
-    <div class="top"><span class="pill" id="pl"><i></i><span id="pt">AQUECENDO</span></span><div class="eq" id="eq" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div><div class="tb"><button class="ibtn" id="nbtn" type="button" aria-label="Modo noite" title="Modo noite" aria-pressed="false">🌙</button><button class="ibtn" id="exit" type="button" aria-label="Sair" title="Sair">✕</button></div></div>
     <div class="vwrap"><video id="cv" muted playsinline autoplay></video><span class="timer" id="tm" hidden>00:00</span></div>
-    <p class="cs" id="cs" role="status"></p>
-    <p class="chk" id="chk"></p>
+    <div class="topbar"><span class="pill" id="pl"><i></i><span id="pt">AQUECENDO</span></span><div class="eq" id="eq" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div></div>
     <p class="ls" id="ls" role="status"></p>
-    <div class="ctl">
-      <button class="ibtn" id="lock" type="button" aria-label="Travar tela" title="Travar tela">🔒</button>
-      <button class="shutter" id="rec" type="button" aria-label="Gravar ou parar"><i></i></button>
-      <span class="sp"></span>
+    <div class="sideL"><div class="sb"><button class="ibtn" id="natc" type="button" aria-label="Câmera do iPhone" title="Câmera do iPhone">📱</button><small>Câmera iPhone</small></div></div>
+    <div class="side">
+      <button class="ibtn" id="nbtn" type="button" aria-label="Modo noite" title="Modo noite" aria-pressed="false">🌙</button>
+      <div class="sb"><button class="ibtn" id="ecob" type="button" aria-label="Economia de bateria" title="Economia de bateria">🍃</button><small id="ecol">Economia</small></div>
+      <div class="sb"><button class="ibtn" id="lock" type="button" aria-label="Bloquear tela" title="Bloquear tela">🔒</button><small>Bloquear tela</small></div>
+      <button class="ibtn" id="dtab" type="button" aria-label="Abrir vídeos" title="Seus vídeos">🎞️</button>
+      <button class="ibtn" id="exit" type="button" aria-label="Sair" title="Sair">✕</button>
     </div>
+    <div class="botpanel" id="bpn">
+      <button class="grab" id="grab" type="button" aria-label="Recolher ou abrir o painel">⌄</button>
+      <div class="chips">
+        <button class="pchip" id="cq" type="button"></button>
+        <button class="pchip" id="cb" type="button"></button>
+      </div>
+      <button class="pchip wide" id="cc" type="button"></button>
+      <p class="cs" id="cs" role="status"></p>
+      <p class="chk" id="chk"></p>
+    </div>
+    <div class="recwrap">
+      <button class="shutter" id="rec" type="button" aria-label="Gravar ou parar"><i></i></button>
+      <span class="reclbl" id="rl">SALVAR MOMENTO</span>
+    </div>
+    <div id="mscrim" hidden></div>
+    <div class="menu" id="menu" hidden></div>
   </div>
-  <button class="tab" id="dtab" type="button" aria-label="Abrir vídeos" title="Seus vídeos">🎞️</button>
   <div class="dwrap" id="dwrap">
     <div class="scrim" id="dscrim"></div>
     <aside class="drawer" aria-label="Seus vídeos">
@@ -297,7 +355,7 @@ body{background:var(--bg)}
       <li><b>2</b><span>Quando o peixe aparecer, diga <strong>“ok câmera”</strong>. Você ouve um bip e a gravação começa já com os segundos de antes.</span></li>
       <li><b>3</b><span>Diga <strong>“parar”</strong> pra salvar. Depois, use <strong>Salvar todos em Fotos</strong>.</span></li>
     </ol>
-    <p class="hint">Antes de sair, faça o Teste rápido em Ajustes. Dica: a aba 🎞️ na lateral da câmera mostra os vídeos por dia. Toque duas vezes na tela pra gravar ou parar sem falar. Use o botão 🔒 pra escurecer a tela. Não aperte o botão lateral do iPhone, ele desliga a câmera.</p>
+    <p class="hint">Precisa de zoom ou lanterna? Use 📱 Câmera do iPhone (sem voz e sem buffer). Antes de sair, faça o Teste rápido em Ajustes. Dica: a aba 🎞️ na lateral da câmera mostra os vídeos por dia. Toque duas vezes na tela pra gravar ou parar sem falar. Use o botão 🔒 pra escurecer a tela. Não aperte o botão lateral do iPhone, ele desliga a câmera.</p>
     <button class="btn" id="howok" type="button" style="margin-top:12px">Entendi</button>
   </div>
 </div>
@@ -426,7 +484,7 @@ function render() {
   if (!items.length) { $('#list').innerHTML = '<div class="empty"><div class="big-e">🎣</div><p>Nenhum vídeo ainda.<br>Ligue a câmera e diga “ok câmera” na próxima fisgada.</p></div>'; return; }
   if (favOnly && !vlist().length) { $('#list').innerHTML = '<div class="empty"><div class="big-e">⭐</div><p>Nenhum favorito ainda.<br>Abra um vídeo e toque em Favoritar.</p></div>'; return; }
   $('#list').innerHTML = '<button class="btn alt" id="all" type="button">Salvar todos em Fotos (' + items.length + ')</button><p class="hint" id="allmsg" role="status"></p><div class="grid">' + vlist().map(o =>
-    '<button class="tile' + (sel && sel.has(o.id) ? ' on' : '') + '" type="button" data-id="' + o.id + '"><video src="' + url(o) + '#t=0.1" preload="metadata" muted playsinline></video>' + (o.dur ? '<span class="dur">' + Math.floor(o.dur / 60) + ':' + String(o.dur % 60).padStart(2, '0') + '</span>' : '') + '<span class="cap"><b>' + fmt(o.created) + (favs.has(o.id) ? ' ⭐' : '') + (o.loc ? ' 📍' : '') + '</b></span></button>'
+    '<button class="tile' + (sel && sel.has(o.id) ? ' on' : '') + '" type="button" data-id="' + o.id + '"><video src="' + url(o) + '#t=0.1" preload="metadata" muted playsinline></video>' + (o.dur ? '<span class="dur">' + Math.floor(o.dur / 60) + ':' + String(o.dur % 60).padStart(2, '0') + '</span>' : '') + '<span class="cap"><b>' + fmt(o.created) + (favs.has(o.id) ? ' ⭐' : '') + (o.loc ? ' 📍' : '') + (o.nat ? ' 📱' : '') + '</b></span></button>'
   ).join('') + '</div>';
 }
 
@@ -475,7 +533,7 @@ function pickMime() {
 }
 function startSeg() {
   const m = pickMime();
-  const opt = { videoBitsPerSecond: $('#ql').value === '720' ? 5e6 : 10e6 };
+  const opt = { videoBitsPerSecond: bitrate() };
   if (m) opt.mimeType = m;
   const mr = new MediaRecorder(stream, opt);
   const s = { mr, chunks: [], start: Date.now(), keep: false };
@@ -536,13 +594,14 @@ function listen() {
 }
 $('#on').onclick = async () => {
   SEG = Number($('#pre').value) * 1000;
-  try { localStorage.setItem('gp', JSON.stringify({ pre: $('#pre').value, fc: $('#fc').value, lg: $('#lg').value, cm: $('#cm').value, ql: $('#ql').value, lm: $('#lm').value, gps: $('#gps').value, bp: $('#bp').value })); } catch (e) {}
+  try { localStorage.setItem('gp', JSON.stringify({ pre: $('#pre').value, fc: $('#fc').value, lg: $('#lg').value, cm: $('#cm').value, ql: $('#ql').value, fr: $('#fr').value, lm: $('#lm').value, gps: $('#gps').value, bp: $('#bp').value })); } catch (e) {}
   initAudio();
   getPos();
+  refreshChips(); setEco(0); closeMenu();
   $('#mode').hidden = false; modeOn = true;
   say('Abrindo câmera e microfone…');
   try {
-    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: $('#fc').value, width: { ideal: $('#ql').value === '720' ? 1280 : 1920 }, height: { ideal: $('#ql').value === '720' ? 720 : 1080 }, frameRate: { ideal: 30 } }, audio: true });
+    stream = await navigator.mediaDevices.getUserMedia({ video: videoC(), audio: true });
   } catch (e) { say('Não consegui abrir a câmera e o microfone. Permita o acesso (Ajustes > Apps > Safari > Câmera e Microfone) e tente de novo.'); return; }
   if (!window.MediaRecorder) { say('Este navegador não grava vídeo aqui.'); return; }
   $('#cv').srcObject = stream;
@@ -555,6 +614,7 @@ $('#on').onclick = async () => {
 $('#rec').onclick = () => rec ? stopRec() : trigger();
 function leave() {
   $('#dwrap').classList.remove('open');
+  setEco(0); closeMenu();
   clearInterval(uiT); voiceOk = false; $('#lk').hidden = true;
   modeOn = false;
   clearInterval(iv); clearTimeout(rt);
@@ -803,7 +863,7 @@ $('#drl').onclick = e => { const t = e.target.closest('.tile'); if (t) openById(
 $('#dtab').onclick = () => { if (rec) return; drawList(); $('#dwrap').classList.add('open'); };
 $('#drx').onclick = () => { $('#dwrap').classList.remove('open'); };
 $('#dscrim').onclick = () => { $('#dwrap').classList.remove('open'); };
-const APP_VERSION = '2.0';
+const APP_VERSION = '2.2';
 async function runTest() {
   const out = $('#tl');
   out.innerHTML = '';
@@ -843,11 +903,123 @@ $('#testb').onclick = () => { $('#qt').hidden = false; runTest(); };
 $('#qtgo').onclick = runTest;
 $('#qtx').onclick = () => { $('#qt').hidden = true; };
 function updReadout() {
-  $('#hs').textContent = '● STANDBY · ' + $('#ql').value + 'P · 30 FPS · PRÉ ' + $('#pre').value + 'S';
+  $('#hs').textContent = '● STANDBY · ' + qLabel().toUpperCase() + ' · PRÉ ' + $('#pre').value + 'S';
+  refreshChips();
 }
 document.querySelectorAll('.set select').forEach(el => el.addEventListener('change', updReadout));
 $('#ver').textContent = 'Pesca Replay v' + APP_VERSION;
 $('#updb').onclick = () => location.reload();
+const PRE = { p1: /camera (comece|comeca|inicie|inicia) (a )?gravar/, p2: /\bfisgou\b/, p3: /salvar video/ };
+const PRL = { p1: '“câmera, comece a gravar”', p2: '“fisgou”', p3: '“salvar vídeo”' };
+let eco = 0, lastA = 0;
+function cmdName() {
+  const v = $('#cm').value;
+  if (PRL[v]) return PRL[v];
+  if (v === 'cus' && phrases.length) return 'sua frase';
+  return LG[lang()].n;
+}
+function qLabel() { const q = $('#ql').value; return (q === '2160' ? '4K' : q + 'p') + ' · ' + $('#fr').value + ' fps'; }
+function refreshChips() {
+  $('#cq').textContent = qLabel();
+  $('#cb').textContent = 'Buffer ' + $('#pre').value + ' s';
+  $('#cc').textContent = 'Comando: ' + cmdName().replace(/[“”]/g, '');
+}
+function videoC() {
+  const q = $('#ql').value;
+  const W = q === '2160' ? 3840 : q === '720' ? 1280 : 1920, H = q === '2160' ? 2160 : q === '720' ? 720 : 1080;
+  return { facingMode: $('#fc').value, width: { ideal: W }, height: { ideal: H }, frameRate: { ideal: Number($('#fr').value) } };
+}
+function bitrate() {
+  const base = { '720': 5e6, '1080': 10e6, '2160': 25e6 }[$('#ql').value] || 10e6;
+  return $('#fr').value === '60' ? base * 1.4 : base;
+}
+function saveSettings() {
+  try { localStorage.setItem('gp', JSON.stringify({ pre: $('#pre').value, fc: $('#fc').value, ql: $('#ql').value, fr: $('#fr').value, lm: $('#lm').value, gps: $('#gps').value, bp: $('#bp').value, lg: $('#lg').value, cm: $('#cm').value })); } catch (e) {}
+}
+function setupAnalyser() {
+  try { if (ac) { const src = ac.createMediaStreamSource(stream); an = ac.createAnalyser(); an.fftSize = 256; anBuf = new Uint8Array(an.fftSize); src.connect(an); } } catch (e) { an = null; }
+}
+function resetRoll() {
+  segs.forEach(s => { try { s.mr.stop(); } catch (e) {} });
+  segs = [];
+  roll();
+}
+async function restartCam() {
+  if (rec || !modeOn) return;
+  clearInterval(iv); clearTimeout(rt);
+  segs.forEach(s => { try { s.mr.stop(); } catch (e) {} });
+  segs = [];
+  const old = stream; stream = null; an = null;
+  if (old) old.getTracks().forEach(t => t.stop());
+  say('Trocando a qualidade…');
+  try { stream = await navigator.mediaDevices.getUserMedia({ video: videoC(), audio: true }); }
+  catch (e) { say('Não consegui trocar a qualidade. Tente outra.'); return; }
+  $('#cv').srcObject = stream;
+  setupAnalyser();
+  roll();
+}
+function openMenu(title, opts, pick, desc) {
+  const m = $('#menu');
+  m.innerHTML = '<strong>' + title + '</strong>' + (desc ? '<p>' + desc + '</p>' : '') +
+    opts.map((o, i) => '<button type="button" data-i="' + i + '"' + (o.on ? ' class="on"' : '') + '>' + o.label + '</button>').join('');
+  m.hidden = false; $('#mscrim').hidden = false;
+  m.onclick = e => { const b = e.target.closest('button'); if (!b) return; closeMenu(); pick(opts[Number(b.dataset.i)]); };
+}
+function closeMenu() { $('#menu').hidden = true; $('#mscrim').hidden = true; }
+function busy() { if (rec) { toast('Pare a gravação antes de mudar.'); return true; } return false; }
+$('#mscrim').onclick = closeMenu;
+$('#grab').onclick = () => $('#bpn').classList.toggle('closed');
+$('#cq').onclick = () => {
+  if (busy()) return;
+  const cur = $('#ql').value + '|' + $('#fr').value;
+  const L = [['720', '30', 'HD · 30 fps'], ['1080', '30', 'Full HD · 30 fps'], ['1080', '60', 'Full HD · 60 fps'], ['2160', '30', '4K · 30 fps (experimental)']];
+  openMenu('Qualidade', L.map(a => ({ label: a[2], v: a, on: a[0] + '|' + a[1] === cur })),
+    o => { $('#ql').value = o.v[0]; $('#fr').value = o.v[1]; saveSettings(); updReadout(); restartCam(); },
+    'O iPhone pode entregar menos que o pedido. A linha “Câmera” mostra o valor real.');
+};
+$('#cb').onclick = () => {
+  if (busy()) return;
+  openMenu('Buffer antes do comando', ['15', '30', '60'].map(v => ({ label: v + ' segundos', v, on: $('#pre').value === v })),
+    o => { $('#pre').value = o.v; SEG = Number(o.v) * 1000; saveSettings(); updReadout(); resetRoll(); },
+    '60 segundos usa mais memória do celular.');
+};
+$('#cc').onclick = () => {
+  const L = [['std', LG[lang()].n.replace(/[“”]/g, '')], ['p1', 'câmera, comece a gravar'], ['p2', 'fisgou'], ['p3', 'salvar vídeo']];
+  if (phrases.length) L.push(['cus', 'Minha frase']);
+  openMenu('Comando de voz', L.map(a => ({ label: a[1], v: a[0], on: $('#cm').value === a[0] })),
+    o => { $('#cm').value = o.v; saveSettings(); updReadout(); },
+    'Para parar, diga “parar”.');
+};
+function setEco(v) {
+  eco = v;
+  $('#mode').dataset.eco = String(v);
+  $('#ecol').textContent = v === 1 ? 'Economia baixa' : v === 2 ? 'Economia alta' : 'Economia';
+  $('#ecol').classList.toggle('on', v > 0);
+}
+$('#ecob').onclick = () => openMenu('Economia de bateria',
+  [{ label: 'Economia baixa', v: 1, on: eco === 1 }, { label: 'Economia alta', v: 2, on: eco === 2 }, { label: 'Desativar economia', v: 0, on: eco === 0 }],
+  o => setEco(o.v),
+  'Baixa escurece a imagem. Alta apaga a imagem. Câmera, buffer, áudio e voz continuam ativos.');
+async function addNative(f) {
+  const o = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), created: (f.lastModified && Date.now() - f.lastModified < 864e5) ? f.lastModified : Date.now(), nat: true, loc: pos, blob: f };
+  const d = await new Promise(res => {
+    const v = document.createElement('video');
+    const done = n => { URL.revokeObjectURL(v.src); res(n); };
+    const t = setTimeout(() => done(0), 4000);
+    v.preload = 'metadata'; v.muted = true;
+    v.onloadedmetadata = () => { clearTimeout(t); done(isFinite(v.duration) ? Math.round(v.duration) : 0); };
+    v.onerror = () => { clearTimeout(t); done(0); };
+    v.src = URL.createObjectURL(f);
+  });
+  if (d) o.dur = d;
+  try {
+    await put(o); items.push(o); render();
+    toast('✅ Vídeo salvo', { label: '📥 Salvar em Fotos', fn: () => shareOne(o) });
+  } catch (e) { toast('Não coube no armazenamento. Salve em Fotos e apague vídeos.'); }
+}
+$('#natb').onclick = () => { getPos(); $('#nat').value = ''; $('#nat').click(); };
+$('#natc').onclick = () => { if (rec) return; leave(); getPos(); $('#nat').value = ''; $('#nat').click(); };
+$('#nat').onchange = e => { const f = e.target.files[0]; if (f) addNative(f); };
 function countUp(el, to) {
   const t0 = performance.now();
   (function f(t) {
@@ -874,6 +1046,8 @@ function shareOne(o) {
 }
 function anim(t) {
   if (!modeOn) return;
+  if (eco === 2 && t - lastA < 500) { requestAnimationFrame(anim); return; }
+  lastA = t;
   let lvl = 0;
   if (an && anBuf) {
     an.getByteTimeDomainData(anBuf);
@@ -900,7 +1074,7 @@ function ui() {
   $('#chk').innerHTML = [['Câmera' + camInfo(), !!stream], ['Pré-gravação', !!ready], ['Voz', voiceOk]]
     .map(x => '<span>' + (x[1] ? '✅ ' : '❌ ') + x[0] + '</span>').join('');
   const stopWord = { 'pt-BR': '“parar”', 'es-ES': '“parar”', 'en-US': '“stop”' }[lang()];
-  const want = rec ? stopWord : ($('#cm').value === 'cus' && phrases.length ? 'sua frase' : LG[lang()].n);
+  const want = rec ? stopWord : cmdName();
   const hit = Date.now() - hitAt < 3000;
   let line = voiceOk ? '🎤 Ouvindo: ' + want : '🎤 Voz indisponível. Use os botões.';
   if (voiceOk && heardTxt && Date.now() - heardAt < 4000) line += ' · Ouvi: “' + heardTxt.slice(-40) + '”';
@@ -909,9 +1083,11 @@ function ui() {
   $('#ls').textContent = line;
   $('#ls').classList.toggle('hit', hit);
   $('#dtab').disabled = !!rec;
+  $('#natc').disabled = !!rec;
   if (rec) $('#dwrap').classList.remove('open');
   $('#pl').className = 'pill ' + (rec ? 'rec' : ready ? 'ok' : '');
   $('#pt').textContent = rec ? 'GRAVANDO' : ready ? 'PRONTO' : 'AQUECENDO';
+  $('#rl').textContent = rec ? 'PARAR' : 'SALVAR MOMENTO';
   if (rec) {
     const lim = Number($('#lm').value), el = (Date.now() - recStart) / 1000;
     if (lim && el >= lim - 30 && el < lim && !warned) { warned = true; toast('⏱️ Faltam 30 s para o limite'); }
@@ -945,11 +1121,10 @@ const LG = {
   'en-US': { s: /(ok|okay) camera/, e: /\b(stop|end)\b/, n: '“ok camera”' }
 };
 const lang = () => $('#lg').value;
-const readyMsg = () => $('#cm').value === 'cus' && phrases.length
-  ? 'Pronto. Diga a sua frase para gravar.'
-  : 'Pronto. Diga ' + LG[lang()].n + ' para gravar.';
+const readyMsg = () => 'Pronto. Diga ' + cmdName() + ' para gravar.';
 let phrases = [], tmp = [], testing = false;
 function isStart(t) {
+  if (PRE[$('#cm').value]) return PRE[$('#cm').value].test(t);
   if ($('#cm').value === 'cus' && phrases.length) return phrases.some(x => t.includes(x));
   return LG[lang()].s.test(t);
 }
@@ -1005,6 +1180,7 @@ try {
   if (p.fc) $('#fc').value = p.fc;
   if (p.lg) $('#lg').value = p.lg;
   if (p.ql) $('#ql').value = p.ql;
+  if (p.fr) $('#fr').value = p.fr;
   if (p.lm) $('#lm').value = p.lm;
   if (p.gps) $('#gps').value = p.gps;
   if (p.bp) $('#bp').value = p.bp;
